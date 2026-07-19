@@ -1,0 +1,28 @@
+{
+  "name": "kotodama-kms",
+  "main": "src/app.ts",
+  "compatibility_date": "2025-03-17",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "nodejs_als"
+  ],
+  "vars": {
+    "APP_CAPABILITIES": "[\"edge-facade\",\"bpmn-dispatch\"]",
+    "APP_DESCRIPTION": "Key Management Service — access policy issuance for etzhayyim private records.",
+    "APP_DISPLAY_NAME": "etzhayyim KMS",
+    "APP_EMBED_URL": "https://kms.etzhayyim.com/?embed=1",
+    "APP_FRAMEWORK": "ts-native",
+    "APP_NANOID": "kms",
+    "APP_PERFORMER_TYPE": "service",
+    "APP_UI_TYPE": "none",
+    "APP_HANDLE": "kms.etzhayyim.com",
+    "PRIMARY_DID": "did:web:kms.etzhayyim.com",
+    "AGENTGATEWAY_MCP_ROUTER_URL": "https://mcp.etzhayyim.com/xrpc/com.etzhayyim.mcp.message"
+  },
+  "routes": [
+    {
+      "pattern": "kms.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    }
+  ]
+}
