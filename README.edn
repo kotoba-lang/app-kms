@@ -1,1 +1,5 @@
-{:schema "etzhayyim.repository/v1" :repository "kotoba-lang/app-kms" :kind :standalone-app-artifact :canonical-record-format :edn :source-path "60-apps/etzhayyim-project-kms"}
+{:name kagitaba-kms
+ :handle "kagitaba.kotoba.cloud"
+ :did "did:web:kagitaba.kotoba.cloud"
+ :runtime cloudflare-worker
+ :docs "README.md"}
