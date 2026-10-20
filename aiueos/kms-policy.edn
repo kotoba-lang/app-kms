@@ -1,0 +1,19 @@
+;; app-kms — itonami（dapp）の aiueos アプリ記述子（notes.edn 形）。
+;; 判定コアは aiueos/kms_policy.cljk（署名付きアクセスポリシーの判定）。
+;; 正本は worker/src/app.ts（kagitaba KMS）。pure（:effects #{}）。
+;; 署名・KV・HMAC 比較は host（Worker）の仕事。
+{:aiueos/component :app/kms-policy
+ :aiueos/kind :app
+ :aiueos/trust :untrusted
+ :aiueos/source "kms_policy.cljk"
+ :aiueos/wasm "kms_policy.wasm"
+ :aiueos/entry "main"
+ :aiueos/args []
+ :aiueos/imports #{}
+ :aiueos/exports #{:app/main
+                   :app/issue-judgment
+                   :app/auth-judgment
+                   :app/chain-judgment
+                   :app/dedup-take}
+ :aiueos/effects #{}
+ :aiueos/limits {:memory-pages 16 :fuel 5000000}}

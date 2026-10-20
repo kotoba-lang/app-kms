@@ -1,0 +1,100 @@
+(ns kms.policy
+  "kms アクセスポリシー判定コア — itonami dapp bundle（pure, :effects #{}）。
+
+  kagitaba KMS の署名付きアクセスポリシーの判定（正本: worker/src/app.ts +
+  README の invariants）:
+
+  - **検証**: resourcePattern は `kagitaba://` で始まり 14 文字以上、
+    recipient はそれぞれ `did:<lower-alnum>:` 形。
+  - **CID は canonical（recipients を sorted+deduped）から決定的** —— 同じ
+    canonical は同じ CID なので、再発行は dedup して既存 JWT を返す。
+  - **version chain は append-only**: add/removeRecipient は新 CID を作り、
+    旧 head に supersededBy を記録（旧記録を書き換えない）。revoke は
+    tombstone で、**revoked head は mutation を 404 で拒む**。
+  - **read は public、mutation は ADMIN_TOKEN 必須**（constant-time 比較）。
+    secret 未設定は 503 misconfigured。
+
+  issue-judgment のエラービット（0 = 発行可）:
+    1 :bad-pattern     resourcePattern が形外
+    2 :bad-recipient   recipient が DID 形でない
+    4 :no-signing-key  署名鍵が未設定（503）
+  auth-judgment の戻り: 0 = 通す / 1 = unauthorized（401）/ 2 = misconfigured（503）
+  chain-judgment のエラービット（0 = 規則どおり）:
+    1 :append-rewrite        旧記録を書き換えた（append-only 違反）
+    2 :supersede-lost        supersededBy の記録が無い
+    4 :revoked-mutation     revoked head への mutation を許した
+  dedup-take: 1 = 既存を再利用（dedup）/ 0 = 新規発行
+
+  実行 host はスカラーのみ = KIR v3 / i64/direct ABI（kernel/selfhost 両対応）。
+
+  テストはゼロ引数 test-*、戻り 1/0:
+  <amu> test aiueos/kms_policy.cljk"
+  (:export [main issue-judgment auth-judgment chain-judgment dedup-take
+            test-issue test-pattern test-recipient test-key
+            test-auth-read test-auth-unauth test-auth-misconfig
+            test-chain test-revoked test-dedup test-fail-closed]))
+
+(defn main [] :i64
+  0)
+
+(defn- denied [ok :i64 bit :i64] :i64
+  (if (= ok 1) 0 bit))
+
+(defn issue-judgment [pattern-ok :i64 recipients-ok :i64 has-key :i64] :i64
+  (+ (denied pattern-ok 1)
+     (denied recipients-ok 2)
+     (denied has-key 4)))
+
+(defn auth-judgment [is-mutation :i64 has-secret :i64 token-ok :i64] :i64
+  (if (= is-mutation 0)
+    0
+    (if (= has-secret 0)
+      2
+      (if (= token-ok 1) 0 1))))
+
+(defn chain-judgment [append-only-kept :i64 supersede-recorded :i64 revoked-rejects-mutation :i64] :i64
+  (+ (denied append-only-kept 1)
+     (denied supersede-recorded 2)
+     (denied revoked-rejects-mutation 4)))
+
+(defn dedup-take [canonical-equal :i64 has-existing :i64] :i64
+  (if (and (= canonical-equal 1) (= has-existing 1)) 1 0))
+
+;; --- tests（戻り 1 = pass） ------------------------------------------------
+
+(defn test-issue [] :i64
+  (if (= (issue-judgment 1 1 1) 0) 1 0))
+
+(defn test-pattern [] :i64
+  (if (= (issue-judgment 0 1 1) 1) 1 0))
+
+(defn test-recipient [] :i64
+  (if (= (issue-judgment 1 0 1) 2) 1 0))
+
+(defn test-key [] :i64
+  ;; 署名鍵未設定は 503（fail closed）
+  (if (= (issue-judgment 1 1 0) 4) 1 0))
+
+(defn test-auth-read [] :i64
+  ;; read は public
+  (if (= (auth-judgment 0 0 0) 0) 1 0))
+
+(defn test-auth-unauth [] :i64
+  (if (= (auth-judgment 1 1 0) 1) 1 0))
+
+(defn test-auth-misconfig [] :i64
+  (if (= (auth-judgment 1 0 0) 2) 1 0))
+
+(defn test-chain [] :i64
+  (if (= (chain-judgment 1 1 1) 0) 1 0))
+
+(defn test-revoked [] :i64
+  ;; revoked head への mutation 許可は違反
+  (if (= (chain-judgment 1 1 0) 4) 1 0))
+
+(defn test-dedup [] :i64
+  ;; 同一 canonical は既存を再利用
+  (if (= (+ (dedup-take 1 1) (dedup-take 1 0) (dedup-take 0 1) (dedup-take 0 0)) 1) 1 0))
+
+(defn test-fail-closed [] :i64
+  (if (= (+ (issue-judgment 0 0 0) (chain-judgment 0 0 0)) 14) 1 0))
